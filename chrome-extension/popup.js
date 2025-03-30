@@ -1,87 +1,96 @@
-document.getElementById('listenBtn').addEventListener('click', async () => {
+document.addEventListener('DOMContentLoaded', () => {
+  const listenBtn = document.getElementById('listenBtn');
   const statusDiv = document.getElementById('status');
-  statusDiv.textContent = "Requesting microphone access...";
 
-  try {
-    // 1. Request microphone access.
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    statusDiv.textContent = "Microphone access granted. Recording audio...";
+  if (!listenBtn || !statusDiv) {
+    console.error('Required elements not found in the DOM.');
+    return;
+  }
 
-    // 2. Create an AudioContext and load the AudioWorklet module.
-    const audioContext = new AudioContext();
-    await audioContext.audioWorklet.addModule('audioWorkletRecorder.js');
+  listenBtn.addEventListener('click', async () => {
+    statusDiv.textContent = "Requesting microphone access...";
 
-    // 3. Create an AudioWorkletNode for our recorder processor.
-    const recorderNode = new AudioWorkletNode(audioContext, 'audio-recorder-processor');
-    let audioChunks = [];
-    recorderNode.port.onmessage = (event) => {
-      audioChunks.push(event.data); // event.data is a Float32Array
-    };
+    try {
+      // 1. Request microphone access.
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      statusDiv.textContent = "Microphone access granted. Recording audio...";
 
-    // Connect the microphone stream to the recorder.
-    const source = audioContext.createMediaStreamSource(stream);
-    source.connect(recorderNode);
-    // (We don't need to connect recorderNode to destination if live playback is not desired.)
+      // 2. Create an AudioContext and load the AudioWorklet module.
+      const audioContext = new AudioContext();
+      await audioContext.audioWorklet.addModule('audioWorkletRecorder.js');
 
-    // 4. Record for 5 seconds.
-    setTimeout(async () => {
-      statusDiv.textContent = "Recording stopped. Preparing WAV file...";
-      // Disconnect nodes and stop the stream.
-      source.disconnect();
-      recorderNode.disconnect();
-      await audioContext.close();
-      stream.getTracks().forEach(track => track.stop());
+      // 3. Create an AudioWorkletNode for our recorder processor.
+      const recorderNode = new AudioWorkletNode(audioContext, 'audio-recorder-processor');
+      let audioChunks = [];
+      recorderNode.port.onmessage = (event) => {
+        audioChunks.push(event.data); // event.data is a Float32Array
+      };
 
-      // Flatten the collected audio chunks.
-      const flatSamples = flattenArray(audioChunks);
-      // Use audioContext's sampleRate or set your desired rate (e.g., 44100).
-      const sampleRate = 44100;
-      const wavBuffer = encodeWAV(flatSamples, sampleRate);
-      const wavBlob = new Blob([wavBuffer], { type: "audio/wav" });
+      // Connect the microphone stream to the recorder.
+      const source = audioContext.createMediaStreamSource(stream);
+      source.connect(recorderNode);
+      // (We don't connect recorderNode to destination if live playback is not desired.)
 
-      // 5. Get aria descriptions from the active tab via content script.
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        // Filter to ensure we use a non-extension page.
-        const normalTabs = tabs.filter(tab => tab.url && !tab.url.startsWith("chrome-extension://"));
-        if (normalTabs.length === 0) {
-          statusDiv.textContent = "No target webpage found.";
-          return;
-        }
-        const targetTab = normalTabs[0];
-        chrome.tabs.sendMessage(targetTab.id, { action: "getAriaDescriptions" }, (response) => {
-          if (!response || !response.ariaDescriptions) {
-            statusDiv.textContent = "Could not retrieve aria descriptions from target page.";
+      // 4. Record for 5 seconds.
+      setTimeout(async () => {
+        statusDiv.textContent = "Recording stopped. Preparing WAV file...";
+        // Disconnect nodes and stop the stream.
+        source.disconnect();
+        recorderNode.disconnect();
+        await audioContext.close();
+        stream.getTracks().forEach(track => track.stop());
+
+        // Flatten the collected audio chunks.
+        const flatSamples = flattenArray(audioChunks);
+        // Use a sample rate of 44100.
+        const sampleRate = 44100;
+        const wavBuffer = encodeWAV(flatSamples, sampleRate);
+        const wavBlob = new Blob([wavBuffer], { type: "audio/wav" });
+
+        // 5. Get aria descriptions from the active tab via content script.
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          // Filter to ensure we use a non-extension page.
+          const normalTabs = tabs.filter(tab => tab.url && !tab.url.startsWith("chrome-extension://"));
+          if (normalTabs.length === 0) {
+            statusDiv.textContent = "No target webpage found.";
             return;
           }
-          // 6. Prepare a FormData object.
-          const formData = new FormData();
-          formData.append("audio", wavBlob, "command.wav");
-          formData.append("aria_descriptions", JSON.stringify(response.ariaDescriptions));
+          const targetTab = normalTabs[0];
+          chrome.tabs.sendMessage(targetTab.id, { action: "getAriaDescriptions" }, (response) => {
+            if (!response || !response.ariaDescriptions) {
+              statusDiv.textContent = "Could not retrieve aria descriptions from target page.";
+              return;
+            }
+            // 6. Prepare a FormData object.
+            const formData = new FormData();
+            formData.append("audio", wavBlob, "command.wav");
+            formData.append("aria_descriptions", JSON.stringify(response.ariaDescriptions));
 
-          statusDiv.textContent = "Uploading data to Lambda...";
+            statusDiv.textContent = "Uploading data to Lambda...";
 
-          // 7. Call your Lambda endpoint.
-          fetch("https://o3vzz2i7riuoc3ipkbvyyf7rki0eviup.lambda-url.us-west-2.on.aws/", {
-            method: "POST",
-            body: formData
-          })
-            .then(res => res.json())
-            .then(data => {
-              statusDiv.textContent = "Lambda response received.";
-              // You can now use data.action to automate on the active page.
-              chrome.tabs.sendMessage(targetTab.id, { action: "performAction", details: data.action });
+            // 7. Call your Lambda endpoint.
+            fetch("https://o3vzz2i7riuoc3ipkbvyyf7rki0eviup.lambda-url.us-west-2.on.aws/", {
+              method: "POST",
+              body: formData
             })
-            .catch(err => {
-              console.error("Error calling Lambda:", err);
-              statusDiv.textContent = "Error calling Lambda.";
-            });
+              .then(res => res.json())
+              .then(data => {
+                statusDiv.textContent = "Lambda response received.";
+                // You can now use data.action to automate on the active page.
+                chrome.tabs.sendMessage(targetTab.id, { action: "performAction", details: data.action });
+              })
+              .catch(err => {
+                console.error("Error calling Lambda:", err);
+                statusDiv.textContent = "Error calling Lambda.";
+              });
+          });
         });
-      });
-    }, 5000);
-  } catch (error) {
-    console.error("Error accessing microphone:", error);
-    statusDiv.textContent = `Error: ${error.name} - ${error.message}`;
-  }
+      }, 5000);
+    } catch (error) {
+      console.error("Error accessing microphone:", error);
+      statusDiv.textContent = `Error: ${error.name} - ${error.message}`;
+    }
+  });
 });
 
 /* Helper function to flatten an array of Float32Arrays into one Float32Array. */

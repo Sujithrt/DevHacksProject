@@ -1,12 +1,88 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Voice Navigation Assistant</title>
+    <meta charset="UTF-8" />
+    <title>Aria</title>
+    <!-- Modern font from Google Fonts -->
+    <link
+      href="https://fonts.googleapis.com/css?family=Roboto:400,500,700"
+      rel="stylesheet"
+    />
+    <style>
+      /* Reset and base box-sizing */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      /* Body styling for a small popup */
+      body {
+        width: 320px; /* typical extension popup width */
+        background-color: #f7f7f7;
+        font-family: 'Roboto', sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 10px;
+      }
+
+      /* Container with minimal card style */
+      .container {
+        background-color: #ffffff;
+        width: 100%;
+        max-width: 280px; /* reduce max width for a tighter card */
+        padding: 15px;
+        border-radius: 6px;
+        text-align: center;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin: 0 auto;
+      }
+
+      /* Title styling */
+      h1 {
+        font-size: 1.6em;
+        color: #333;
+        margin-bottom: 8px;
+      }
+
+      /* Description styling */
+      p {
+        font-size: 0.95em;
+        color: #666;
+        margin-bottom: 15px;
+      }
+
+      /* Button styling */
+      button {
+        padding: 8px 16px;
+        font-size: 0.95em;
+        color: #fff;
+        background-color: #007bff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+
+      /* Status message styling */
+      #status {
+        margin-top: 10px;
+        font-size: 0.9em;
+        color: #333;
+      }
+    </style>
   </head>
   <body>
-    <h2>Voice Navigation Assistant</h2>
-    <button id="listenBtn">Listen</button>
-    <div id="status" style="margin-top: 10px;"></div>
+    <div class="container">
+      <h1>Aria</h1>
+      <p>A voice navigation extension</p>
+      <button id="listenBtn">Start</button>
+      <div id="status"></div>
+    </div>
     <script src="popup.js"></script>
   </body>
 </html>
