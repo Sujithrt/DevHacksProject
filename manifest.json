@@ -1,0 +1,20 @@
+{
+    "name": "ARIA2",
+    "description": "Base Level Extension",
+    "version": "1.0",
+    "manifest_version": 3,
+    "action": {
+      "default_popup": "hello.html",
+      "default_icon": "aria.png"
+    },
+    "permissions": [
+        "scripting",
+        "activeTab",
+        "storage",
+        "declarativeContent",
+        "activeTab",
+        "scripting",
+        "downloads"
+    ],
+    "host_permissions": ["<all_urls>"]
+}
